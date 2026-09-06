@@ -21,9 +21,11 @@ export default function Dashboard() {
           My Documentation — o'rganganlaringizni bir joyda saqlang
         </h1>
         <p className="text-[17px] leading-relaxed text-ink-muted max-w-xl">
-          Node.js ekotizimidagi kutubxonalar bo'yicha shaxsiy, tushunarli va
-          kod misollari bilan boyitilgan qo'llanmalar. Chap paneldan mavzuni
-          tanlang yoki quyidagi kartalardan boshlang.
+          IT dunyosida o'zimga kerak bo'lgan manbalarni shu yerda — eng qulay
+          va tushunarli usulda — dokumentatsiya qilib saqlayman. Bu yagona
+          texnologiyaga bog'liq emas: vaqt o'tishi bilan turli sohalar
+          qo'shilib boradi. Chap paneldan mavzuni tanlang yoki quyidagi
+          kartalardan boshlang.
         </p>
         <div className="flex items-center gap-2 text-[13px] text-ink-subtle mt-1">
           <FileText size={14} />

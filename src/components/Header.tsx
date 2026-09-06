@@ -1,5 +1,6 @@
 import { Menu, X } from "lucide-react";
 import { Logo } from "./Logo";
+import { ThemeToggle } from "./ThemeToggle";
 
 export function Header({
   onToggleSidebar,
@@ -21,9 +22,11 @@ export function Header({
         <Logo size={28} />
       </div>
 
-      <div className="hidden md:flex items-center gap-2 text-xs text-ink-subtle">
-        <span className="border border-hairline px-2 py-1">Uz</span>
-        <span>Shaxsiy dasturlash bilimlar bazasi</span>
+      <div className="flex items-center gap-2">
+        <span className="hidden md:inline text-xs text-ink-subtle border border-hairline px-2 py-1">
+          Uz
+        </span>
+        <ThemeToggle />
       </div>
     </header>
   );

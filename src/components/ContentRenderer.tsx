@@ -1,6 +1,89 @@
-import { AlertTriangle, CheckCircle2, Info } from "lucide-react";
-import type { ContentBlock, Section } from "../data/types";
+import { useState } from "react";
+import { AlertTriangle, CheckCircle2, ChevronDown, Info } from "lucide-react";
+import type { ContentBlock, MethodDoc, Section } from "../data/types";
 import { CodeBlock } from "./CodeBlock";
+
+function MethodItem({ method }: { method: MethodDoc }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="border border-hairline">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left cursor-pointer hover:bg-surface-1 transition-colors"
+        aria-expanded={open}
+      >
+        <div className="flex flex-col gap-0.5 min-w-0">
+          <code className="text-[14px] font-mono text-primary truncate">
+            {method.signature}
+          </code>
+          <span className="text-[12.5px] text-ink-subtle truncate">
+            {method.summary}
+          </span>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {!method.hasFullDoc && (
+            <span className="text-[10px] uppercase tracking-wide text-ink-subtle border border-hairline px-1.5 py-0.5">
+              Qisqacha
+            </span>
+          )}
+          <ChevronDown
+            size={16}
+            className={`text-ink-subtle transition-transform ${open ? "rotate-180" : ""}`}
+          />
+        </div>
+      </button>
+
+      {open && (
+        <div className="px-4 py-4 border-t border-hairline flex flex-col gap-3 bg-canvas">
+          {method.detail && (
+            <p className="text-[15px] leading-[1.65] text-ink-muted m-0">
+              {method.detail}
+            </p>
+          )}
+
+          {method.params && method.params.length > 0 && (
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[11px] uppercase tracking-wide text-ink-subtle">
+                Parametrlar
+              </span>
+              <ul className="flex flex-col gap-1.5">
+                {method.params.map((p, i) => (
+                  <li key={i} className="text-[14px] leading-[1.5] text-ink-muted">
+                    <code className="text-primary font-mono text-[13px]">{p.name}</code>
+                    {" — "}
+                    {p.desc}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {method.returns && (
+            <div className="flex flex-col gap-1">
+              <span className="text-[11px] uppercase tracking-wide text-ink-subtle">
+                Qaytaradi
+              </span>
+              <p className="text-[14px] text-ink-muted m-0">{method.returns}</p>
+            </div>
+          )}
+
+          {method.example && <CodeBlock example={method.example} />}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MethodGroup({ methods }: { methods: MethodDoc[] }) {
+  return (
+    <div className="flex flex-col gap-2">
+      {methods.map((m) => (
+        <MethodItem key={m.id} method={m} />
+      ))}
+    </div>
+  );
+}
 
 function Note({
   variant,
@@ -67,6 +150,8 @@ function Block({ block }: { block: ContentBlock }) {
       return <CodeBlock example={block.example} />;
     case "note":
       return <Note variant={block.variant} text={block.text} />;
+    case "methodGroup":
+      return <MethodGroup methods={block.methods} />;
     case "table":
       return (
         <div className="border border-hairline overflow-x-auto">

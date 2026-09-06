@@ -1,8 +1,13 @@
-import { Boxes, Database, Hexagon } from "lucide-react";
+import { Boxes, Hexagon } from "lucide-react";
 import type { TechGroup } from "./types";
 import { mongooseOverviewTopic } from "./topic-mongoose-overview";
 import { middlewareTopic } from "./topic-middleware";
 
+// Eslatma: Mongoose alohida freymvork emas — u Node.js uchun yozilgan npm
+// kutubxonasi (ODM), shuning uchun mustaqil guruh emas, aynan Node.js guruhi
+// ostida joylashtirilgan. MongoDB (baza)ning o'zi bu yerda alohida
+// ko'rsatilmaydi — hozircha faqat Node.js ekotizimidan foydalanish nuqtai
+// nazaridan Mongoose yetarli.
 export const groups: TechGroup[] = [
   {
     id: "nodejs",
@@ -19,17 +24,6 @@ export const groups: TechGroup[] = [
         accent: "#0f62fe",
         status: "ready",
         topics: [mongooseOverviewTopic, middlewareTopic],
-      },
-      {
-        id: "mongodb",
-        name: "MongoDB",
-        tagline: "Hujjat asosidagi NoSQL baza",
-        description:
-          "Mongoose orqasida turgan hujjat-orientatsiyalashgan (document-oriented) ma'lumotlar bazasi.",
-        icon: Database,
-        accent: "#8c8c8c",
-        status: "soon",
-        topics: [],
       },
     ],
   },

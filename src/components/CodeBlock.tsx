@@ -42,7 +42,7 @@ export function CodeBlock({ example }: { example: CodeExample }) {
           )}
         </button>
       </div>
-      <pre className="overflow-x-auto p-4 text-[13px] leading-6 font-mono m-0">
+      <pre className="overflow-x-auto overflow-y-auto max-h-[70vh] p-4 text-[13px] leading-6 font-mono m-0">
         <code dangerouslySetInnerHTML={{ __html: html }} />
       </pre>
     </div>

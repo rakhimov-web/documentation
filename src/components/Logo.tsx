@@ -1,4 +1,6 @@
 export function LogoMark({ size = 32 }: { size?: number }) {
+  // Ochiq kitob / hujjat shakli — bilimlar bazasi mavzusiga mos, sodda
+  // va istalgan o'lchamda tiniq ko'rinadigan monogram.
   return (
     <svg
       width={size}
@@ -10,25 +12,20 @@ export function LogoMark({ size = 32 }: { size?: number }) {
     >
       <rect width="32" height="32" fill="#0f62fe" />
       <path
-        d="M12.5 9L7 16L12.5 23"
+        d="M16 10.5C14.7 9.4 12.6 8.7 9.5 8.7V21.3C12.6 21.3 14.7 22 16 23.1"
         stroke="#ffffff"
-        strokeWidth="2"
-        strokeLinecap="square"
+        strokeWidth="1.7"
+        strokeLinecap="round"
         strokeLinejoin="round"
       />
       <path
-        d="M19.5 9L25 16L19.5 23"
+        d="M16 10.5C17.3 9.4 19.4 8.7 22.5 8.7V21.3C19.4 21.3 17.3 22 16 23.1"
         stroke="#ffffff"
-        strokeWidth="2"
-        strokeLinecap="square"
+        strokeWidth="1.7"
+        strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <path
-        d="M17.5 7.5L14.5 24.5"
-        stroke="#ffffff"
-        strokeWidth="1.6"
-        strokeLinecap="square"
-      />
+      <path d="M16 10.5V23.1" stroke="#ffffff" strokeWidth="1.7" strokeLinecap="round" />
     </svg>
   );
 }
@@ -38,8 +35,12 @@ export function Logo({ size = 32 }: { size?: number }) {
     <div className="flex items-center gap-3 select-none">
       <LogoMark size={size} />
       <span
-        className="text-[17px] leading-none text-ink"
-        style={{ fontWeight: 400, letterSpacing: 0 }}
+        className="text-[18px] leading-none text-ink italic"
+        style={{
+          fontFamily: '"IBM Plex Serif", Georgia, serif',
+          fontWeight: 500,
+          letterSpacing: 0,
+        }}
       >
         My <span className="font-semibold">Documentation</span>
       </span>

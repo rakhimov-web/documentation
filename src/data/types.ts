@@ -6,12 +6,25 @@ export type CodeExample = {
   code: string;
 };
 
+export type MethodDoc = {
+  id: string;
+  name: string;
+  signature: string;
+  summary: string;
+  detail?: string;
+  params?: { name: string; desc: string }[];
+  returns?: string;
+  example?: CodeExample;
+  hasFullDoc: boolean;
+};
+
 export type ContentBlock =
   | { type: "paragraph"; text: string }
   | { type: "list"; items: string[]; ordered?: boolean }
   | { type: "code"; example: CodeExample }
   | { type: "note"; variant: "info" | "warning" | "success"; text: string }
-  | { type: "table"; headers: string[]; rows: string[][] };
+  | { type: "table"; headers: string[]; rows: string[][] }
+  | { type: "methodGroup"; methods: MethodDoc[] };
 
 export type Section = {
   id: string;
