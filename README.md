@@ -1,32 +1,28 @@
-# React + TypeScript + Vite
+# My Documentation
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Shaxsiy dasturlash bilimlar bazasi — Node.js ekotizimidagi kutubxonalar bo'yicha
+o'zbek tilida, kod misollari va testlar bilan boyitilgan qo'llanmalar.
 
-Currently, two official plugins are available:
+Dizayn tizimi IBM Carbon uslubiga asoslangan (flat, hairline chegaralar,
+IBM Plex Sans/Mono). Frontend — React + TypeScript + Vite + React Router +
+Tailwind CSS v4, ikonalar uchun `lucide-react`.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Hozircha mavjud bo'limlar
 
-## React Compiler
+- **Node.js → Mongoose**
+  - Umumiy ma'lumot (Mongoose nima, MongoDB bilan bog'liqligi, boshlang'ich sozlash)
+  - Middleware (4 turi, pre/post hook'lar, xatoliklarni boshqarish, aggregate/sync
+    hook'lar, middleware'ni o'tkazib yuborish) + 10 savolli interaktiv test
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Yangi kutubxona yoki mavzu qo'shish uchun `src/data/` papkasidagi struktura
+(`types.ts`, `groups.ts`, `topic-*.ts`) kengaytiriladi — sidebar va dashboard
+avtomatik yangilanadi.
 
-## Expanding the Oxlint configuration
+## Ishga tushirish
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm install
+npm run dev      # lokal server
+npm run build    # production build (dist/ papkasiga)
+npm run preview  # build natijasini ko'rish
 ```
-
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
