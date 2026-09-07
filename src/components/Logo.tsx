@@ -42,7 +42,7 @@ export function Logo({ size = 32 }: { size?: number }) {
           letterSpacing: 0,
         }}
       >
-        My <span className="font-semibold">Documentation</span>
+        My <span>Documentation</span>
       </span>
     </div>
   );
