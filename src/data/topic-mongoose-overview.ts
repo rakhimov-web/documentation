@@ -84,7 +84,7 @@ const users = await User.find({ age: { $gte: 18 } });`,
         {
           type: "note",
           variant: "success",
-          text: "Mongoose'ning eng kuchli imkoniyatlaridan biri — middleware (hook) tizimi. Chap paneldagi Middleware bo'limida bu mavzu to'liq yoritilgan: 4 xil middleware turi, pre/post hook'lar, xatoliklarni boshqarish va amaliy kod misollari bilan.",
+          text: "Mongoose'ning eng kuchli imkoniyatlaridan biri — middleware (hook) tizimi. Chap paneldagi Middleware bo'limida bu mavzu to'liq yoritilgan: 4 xil middleware turi (document, query, aggregate, model) va har biriga tegishli metodlar amaliy kod misollari bilan. Pre/post hook'larning umumiy mexanikasi keyingi yangilanishlarda alohida qo'shiladi.",
         },
       ],
     },

@@ -100,14 +100,14 @@ export function Quiz({ questions }: { questions: QuizQuestion[] }) {
             const isCorrect = i === q.correctIndex;
             const isSelected = i === selected;
             let stateClasses =
-              "border-hairline hover:border-ink-subtle cursor-pointer";
+              "border-hairline hover:border-ink-subtle cursor-pointer text-ink";
             if (hasAnswered) {
               if (isCorrect) {
-                stateClasses = "border-success bg-[#defbe6]";
+                stateClasses = "border-success bg-[#defbe6] text-[#161616]";
               } else if (isSelected && !isCorrect) {
-                stateClasses = "border-error bg-[#fff1f1]";
+                stateClasses = "border-error bg-[#fff1f1] text-[#161616]";
               } else {
-                stateClasses = "border-hairline opacity-60";
+                stateClasses = "border-hairline opacity-60 text-ink";
               }
             }
             return (
@@ -115,7 +115,7 @@ export function Quiz({ questions }: { questions: QuizQuestion[] }) {
                 key={i}
                 onClick={() => choose(i)}
                 disabled={hasAnswered}
-                className={`flex items-center justify-between gap-3 text-left px-4 py-3 border text-[15px] text-ink transition-colors ${stateClasses}`}
+                className={`flex items-center justify-between gap-3 text-left px-4 py-3 border text-[15px] transition-colors ${stateClasses}`}
               >
                 <span>{opt}</span>
                 {hasAnswered && isCorrect && (

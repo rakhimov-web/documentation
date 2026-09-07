@@ -157,7 +157,7 @@ product = await product.save();
               summary:
                 "Ushbu hujjatning _id'sini filtr sifatida ishlatib updateOne buyrug'ini yuboradi.",
               detail:
-                "Bu — Model.updateOne({ _id: hujjat._id }, update)ga qulay qisqartma. Yuqoridagi \"Nomlanish to'qnashuvlari\" bo'limida ko'rilganidek, bu metodni document middleware sifatida ushlash uchun schema.pre('updateOne', { document: true, query: false }, fn) shaklida ro'yxatdan o'tkazish kerak — aks holda hook Query obyektiga ulanadi.",
+                "Bu — Model.updateOne({ _id: hujjat._id }, update)ga qulay qisqartma. Diqqat: standart holatda updateOne Query middleware sifatida ro'yxatdan o'tadi — ya'ni doc.updateOne() chaqirilsa ham, hook ichida this Query obyekti bo'ladi, hujjatning o'zi emas. Buni document middleware sifatida ushlash uchun schema.pre('updateOne', { document: true, query: false }, fn) shaklida aniq belgilash kerak.",
               params: [
                 { name: "update", desc: "Yangilash operatsiyasi (masalan, $set, $inc).", },
                 { name: "options", desc: "Query.prototype.setOptions() bilan bir xil optionlar (lean, strict, timestamps va h.k.)." },
@@ -165,7 +165,12 @@ product = await product.save();
               returns: "Query — natijada UpdateResult (matchedCount, modifiedCount va h.k.) qaytaradi.",
               example: {
                 language: "javascript",
-                code: `weirdCar.updateOne({ $inc: { wheels: 1 } }, { w: 1 });`,
+                code: `weirdCar.updateOne({ $inc: { wheels: 1 } }, { w: 1 });
+
+// document middleware sifatida ushlash uchun:
+schema.pre('updateOne', { document: true, query: false }, function () {
+  console.log('Yangilanmoqda: ' + this.name);
+});`,
               },
               hasFullDoc: true,
             },
@@ -176,8 +181,22 @@ product = await product.save();
               summary:
                 "Hujjatning o'zini o'chiradi — lekin standart holatda deleteOne middleware'ini ISHGA TUSHIRMAYDI.",
               detail:
-                "Diqqat: legacy sabablarga ko'ra doc.deleteOne() chaqirilganda query middleware ishlamaydi (Model.deleteOne() esa ishlaydi). Buni document middleware sifatida ushlash uchun schema.pre('deleteOne', { document: true, query: false }, fn) kabi aniq belgilash kerak — bu \"Nomlanish to'qnashuvlari\" bo'limida kod misoli bilan ko'rsatilgan.",
-              hasFullDoc: false,
+                "Diqqat: legacy sabablarga ko'ra doc.deleteOne() chaqirilganda query middleware ishlamaydi (Model.deleteOne() esa ishlaydi). Buni document middleware sifatida ushlash uchun schema.pre('deleteOne', { document: true, query: false }, fn) kabi aniq belgilash kerak.",
+              example: {
+                language: "javascript",
+                code: `schema.pre('deleteOne', function () {
+  console.log("O'chirilyapti!");
+});
+
+await hujjat.deleteOne();   // Hech narsa chop etilmaydi (legacy sabab)
+await Model.deleteOne({});  // "O'chirilyapti!" chop etiladi
+
+// Faqat document middleware sifatida ushlash uchun:
+schema.pre('deleteOne', { document: true, query: false }, function () {
+  console.log("Faqat hujjat middleware'i ishladi");
+});`,
+              },
+              hasFullDoc: true,
             },
             {
               id: "doc-init",
@@ -455,8 +474,22 @@ natija.deletedCount;`,
               signature: "Model.aggregate(pipeline)",
               summary: "Aggregatsiya so'rovlari uchun hook — pipeline bosqichlarini dasturiy ravishda o'zgartirish imkonini beradi.",
               detail:
-                "To'liq amaliy misol va kod pastroqdagi \"Aggregatsiya hook'lari\" bo'limida keltirilgan — u yerda soft-delete qilingan hujjatlarni barcha aggregate so'rovlaridan avtomatik chetlashtirish namunasi ko'rsatilgan.",
-              hasFullDoc: false,
+                "Model.aggregate() chaqirilib, natijada .exec() ishga tushganda bu hook faollashadi. this — Mongoose'ning Aggregate obyekti bo'lib, this.pipeline() funksiyasi orqali MongoDB'ga yuboriladigan aggregation bosqichlari massiviga bevosita kirish mumkin — shu orqali boshiga (yoki istalgan joyiga) yangi bosqich qo'shsa bo'ladi. Amaliy misol: \"soft delete\" (hujjatni butunlay o'chirmasdan, isDeleted: true belgisini qo'yish) qo'llanilganda, har bir aggregate so'rovi avtomatik ravishda faqat o'chirilmagan hujjatlarni ko'rishi uchun pipeline boshiga $match bosqichini qo'shish mumkin.",
+              returns: "Aggregate — .exec() chaqirilganda natijalar massivi (oddiy JS obyektlari, Mongoose hujjatlari emas) bilan bajariladi.",
+              example: {
+                language: "javascript",
+                code: `customerSchema.pre('aggregate', function () {
+  // Har bir pipeline'ning boshiga $match bosqichini qo'shadi
+  this.pipeline().unshift({ $match: { isDeleted: { $ne: true } } });
+});
+
+// Endi har qanday aggregate chaqiruvi avtomatik ravishda
+// faqat o'chirilmagan mijozlarni hisobga oladi:
+const natija = await Customer.aggregate([
+  { $group: { _id: '$shahar', soni: { $sum: 1 } } },
+]);`,
+              },
+              hasFullDoc: true,
             },
           ],
         },
@@ -468,7 +501,7 @@ natija.deletedCount;`,
       blocks: [
         {
           type: "paragraph",
-          text: "Model middleware — Model klassining statik funksiyalariga ulanadi, this esa modelning o'zini anglatadi. Bu yerga 3 ta metod kiradi. Ularning to'liq API tafsilotlari (parametrlar, kod misollari) keyingi yangilanishlarda alohida qo'shiladi.",
+          text: "Model middleware — Model klassining statik funksiyalariga ulanadi, this esa modelning o'zini anglatadi (hujjat emas). Bu turga 3 ta metod kiradi: insertMany, bulkWrite va createCollection.",
         },
         {
           type: "methodGroup",
@@ -477,555 +510,142 @@ natija.deletedCount;`,
               id: "model-insertmany",
               name: "insertMany",
               signature: "Model.insertMany(docs, [options])",
-              summary: "Bir nechta hujjatni bitta buyruq bilan bazaga qo'shadi.",
-              hasFullDoc: false,
+              summary:
+                "Bir nechta hujjatni validatsiyadan o'tkazib, BITTA buyruq bilan bazaga qo'shadi.",
+              detail:
+                "create() dan tezroq ishlaydi, chunki har bir hujjat uchun alohida emas, serverga faqat bitta so'rov yuboradi. Mongoose insertMany() chaqirishdan oldin har doim barcha hujjatlarni validatsiya qiladi — agar ulardan bittasida xatolik bo'lsa, options.ordered false qilib berilmagan bo'lsa, HECH BIRI saqlanmaydi. Diqqat: bu funksiya save() hook'larini ishga TUSHIRMAYDI — buning o'rniga alohida insertMany middleware'i mavjud.",
+              params: [
+                {
+                  name: "options.ordered",
+                  desc: "true (standart) bo'lsa, birinchi xatoda to'xtaydi. false bo'lsa, saqlanishi mumkin bo'lgan barcha hujjatlarni saqlaydi va xatolarni keyinroq qaytaradi (\"unordered\" insertMany).",
+                },
+                {
+                  name: "options.rawResult",
+                  desc: "true bo'lsa, validatsiyadan o'tgan hujjatlar o'rniga MongoDB drayverining xom natijasini qaytaradi.",
+                },
+                {
+                  name: "options.lean",
+                  desc: "true bo'lsa, hujjatlarni hidratsiya qilmaydi (cast, validatsiya va standart qiymatlar qo'llanilmaydi) — tezroq, lekin ma'lumot yaxlitligi xavfi bilan.",
+                },
+                {
+                  name: "options.limit",
+                  desc: "Mongoose bir vaqtning o'zida parallel qayta ishlaydigan (validatsiya/cast) hujjatlar sonini cheklaydi — bu MongoDB'ga yuboriladigan partiyalar sonini emas, xotira sarfini nazorat qilish uchun foydali.",
+                },
+                {
+                  name: "options.middleware",
+                  desc: "false qilib berilsa, foydalanuvchi qo'shgan barcha insertMany hook'lari o'tkazib yuboriladi.",
+                },
+              ],
+              returns:
+                "Promise — options.rawResult true bo'lsa MongoDB drayverining xom natijasi bilan, aks holda validatsiyadan o'tgan hujjatlar massivi bilan bajariladi.",
+              example: {
+                language: "javascript",
+                code: `const filmlar = await Film.insertMany([
+  { nomi: 'Yulduzli urushlar' },
+  { nomi: 'Imperiya qaytishi' },
+]);
+filmlar[0].nomi; // 'Yulduzli urushlar'
+
+// Faqat MongoDB drayverining xom natijasini olish:
+const natija = await Film.insertMany(
+  [{ nomi: 'Yulduzli urushlar' }],
+  { rawResult: true },
+);`,
+              },
+              hasFullDoc: true,
             },
             {
               id: "model-bulkwrite",
               name: "bulkWrite",
               signature: "Model.bulkWrite(operations, [options])",
-              summary: "Insert, update, delete kabi bir nechta amalni bitta so'rovda, bulk tarzda bajaradi.",
-              hasFullDoc: false,
+              summary:
+                "insertOne, updateOne, updateMany, replaceOne, deleteOne va deleteMany amallarini BITTA buyruqda, MongoDB serveriga bitta murojaat bilan bajaradi.",
+              detail:
+                "create() yoki alohida-alohida chaqirilgan updateOne()/deleteOne()larga qaraganda ancha tezroq, chunki serverga faqat bitta round-trip bo'ladi. Mongoose barcha operatsiyalarni sxemaga mos ravishda cast qiladi — bundan yagona istisno: agar updateOne/updateMany'ning update qismi massiv (pipeline) sifatida berilsa, u cast qilinmaydi. ENG MUHIMI: bulkWrite() HECH QANDAY middleware'ni (na save(), na update()) ishga TUSHIRMAYDI. Agar har bir hujjat uchun save() hook'lari ishlashi kerak bo'lsa, buning o'rniga create() dan foydalaning.",
+              params: [
+                {
+                  name: "operations",
+                  desc: "{ insertOne }, { updateOne }, { updateMany }, { deleteOne }, { deleteMany }, { replaceOne } shaklidagi obyektlar massivi.",
+                },
+                {
+                  name: "options.ordered",
+                  desc: "true (standart) bo'lsa, amallar ketma-ket bajariladi va birinchi xatoda to'xtaydi. false bo'lsa, parallel bajariladi va barcha amallar tugaguncha davom etadi.",
+                },
+                {
+                  name: "options.skipValidation",
+                  desc: "true bo'lsa, bulk yozish amallarida Mongoose sxema validatsiyasi o'tkazib yuboriladi (standart holatda insertOne va replaceOne uchun validatsiya ishlaydi).",
+                },
+                {
+                  name: "options.middleware",
+                  desc: "Boshqa metodlardagi kabi — pre/post hook'larni to'liq yoki qisman o'tkazib yuborish imkonini beradi (bu yerda amal qilishi uchun avval alohida bulkWrite hook ro'yxatdan o'tgan bo'lishi kerak).",
+                },
+              ],
+              returns:
+                "Promise — bulkWrite() muvaffaqiyatli bo'lsa BulkWriteResult (insertedCount, modifiedCount, deletedCount va h.k.) bilan bajariladi.",
+              example: {
+                language: "javascript",
+                code: `Personaj.bulkWrite([
+  {
+    insertOne: {
+      document: { ism: 'Ned Stark', unvon: 'Shimol qo\\'riqchisi' },
+    },
+  },
+  {
+    updateOne: {
+      filter: { ism: 'Ned Stark' },
+      // Mongoose avtomatik $set qo'shadi
+      update: { unvon: 'Qirol qo\\'li' },
+    },
+  },
+  {
+    deleteOne: {
+      filter: { ism: 'Ned Stark' },
+    },
+  },
+]).then((natija) => {
+  console.log(natija.insertedCount, natija.modifiedCount, natija.deletedCount);
+});`,
+              },
+              hasFullDoc: true,
             },
             {
               id: "model-createcollection",
               name: "createCollection",
               signature: "Model.createCollection([options])",
-              summary: "MongoDB'da modelga mos kolleksiyani (agar mavjud bo'lmasa) yaratadi.",
-              hasFullDoc: false,
+              summary:
+                "MongoDB'da modelga mos kolleksiyani (agar u hali mavjud bo'lmasa) aniq (explicit) tarzda yaratadi.",
+              detail:
+                "Standart holatda, agar sxemada indeks belgilanmagan bo'lsa, Mongoose kolleksiyani birinchi hujjat yaratilgunga qadar yaratmaydi. Bu metod kolleksiyani oldindan, aniq chaqiruv orqali yaratish imkonini beradi. Eslatma: agar sxemangizda unique yoki boshqa indeks bo'lsa, createCollection() ni qo'lda chaqirish shart emas — buning o'rniga Model.init() yetarli. Tranzaksiya boshlashdan oldin kolleksiyani oldindan yaratib qo'yish tavsiya etiladi, chunki MongoDB tranzaksiya ichida yangi kolleksiya yaratishga cheklov qo'yadi.",
+              params: [
+                {
+                  name: "options",
+                  desc: "MongoDB drayverining createCollection() buyrug'iga to'g'ridan-to'g'ri uzatiladigan optionlar (masalan, capped, size va h.k.).",
+                },
+              ],
+              returns: "Promise — yaratilgan kolleksiya obyekti bilan bajariladi.",
+              example: {
+                language: "javascript",
+                code: `const userSchema = new mongoose.Schema({ ism: String });
+const User = mongoose.model('User', userSchema);
+
+User.createCollection().then(function (kolleksiya) {
+  console.log('Kolleksiya yaratildi!');
+});`,
+              },
+              hasFullDoc: true,
             },
           ],
         },
       ],
     },
     {
-      id: "pre",
-      heading: "Pre middleware",
+      id: "yakun",
+      heading: "Xulosa",
       blocks: [
-        {
-          type: "paragraph",
-          text: "Pre middleware'lar ro'yxatdan o'tkazilgan tartibda, biri tugagach ikkinchisi ishga tushadigan tarzda bajariladi. Ular sinxron funksiya, Promise qaytaruvchi funksiya yoki async funksiya bo'lishi mumkin.",
-        },
-        {
-          type: "code",
-          example: {
-            caption: "Uchta xil pre('save') hook varianti",
-            language: "javascript",
-            code: `const schema = new mongoose.Schema({ /* ... */ });
-
-// 1) Oddiy sinxron pre hook
-schema.pre('save', function () {
-  console.log('Hujjat saqlanishidan oldin ishga tushdi');
-});
-
-// 2) Promise qaytaruvchi pre hook — Mongoose uni kutib turadi
-schema.pre('save', function () {
-  return tekshirish().then(() => qoshimchaIsh());
-});
-
-// 3) async/await bilan yozilgan pre hook
-schema.pre('save', async function () {
-  await tekshirish();
-  await qoshimchaIsh();
-  // Shu qatorgacha kutib turiladi, keyin navbatdagi middleware ishga tushadi
-});`,
-          },
-        },
-        {
-          type: "list",
-          items: [
-            "Murakkab validatsiya qoidalarini tekshirish",
-            "Bog'liq hujjatlarni o'chirish (masalan, foydalanuvchi o'chirilsa, uning barcha postlari ham o'chiriladi)",
-            "Asinxron manbadan olingan standart (default) qiymatlarni belgilash",
-            "Boshqa hujjatlardagi normalizatsiya qilingan ma'lumotni yangilash",
-            "O'zgarishlar tarixini (audit log) alohida saqlash",
-          ],
-        },
-      ],
-    },
-    {
-      id: "pre-error",
-      heading: "Pre hook'da xatolik yuzaga kelsa",
-      blocks: [
-        {
-          type: "paragraph",
-          text: "Agar biror pre hook xatolik bersa, Mongoose undan keyingi middleware'larni ham, asosiy funksiyaning o'zini ham bajarmaydi — xatolik to'g'ridan-to'g'ri chaqiruvchi kodga (caller) uzatiladi.",
-        },
-        {
-          type: "code",
-          example: {
-            caption: "Xatoni uch xil usulda bildirish",
-            language: "javascript",
-            code: `schema.pre('save', function () {
-  throw new Error("Nimadir noto'g'ri ketdi");
-});
-
-// yoki Promise'ni rad etish orqali
-schema.pre('save', function () {
-  return Promise.reject(new Error("Nimadir noto'g'ri ketdi"));
-});
-
-// yoki async funksiya ichida
-schema.pre('save', async function () {
-  await Promise.resolve();
-  throw new Error("Nimadir noto'g'ri ketdi");
-});
-
-// ... keyinroq
-try {
-  await hujjat.save();
-} catch (err) {
-  console.log(err.message); // "Nimadir noto'g'ri ketdi"
-  // Diqqat: o'zgarishlar MongoDB'ga yozilmaydi
-}`,
-          },
-        },
-      ],
-    },
-    {
-      id: "post",
-      heading: "Post middleware",
-      blocks: [
-        {
-          type: "paragraph",
-          text: "Post middleware'lar asosiy funksiya va uning barcha pre hook'lari muvaffaqiyatli tugagandan KEYIN ishga tushadi. Ularga birinchi argument sifatida natija (masalan, saqlangan yoki topilgan hujjat) uzatiladi.",
-        },
-        {
-          type: "code",
-          example: {
-            language: "javascript",
-            code: `schema.post('save', function (doc) {
-  console.log(doc._id + ' muvaffaqiyatli saqlandi');
-});
-
-schema.post('deleteOne', function (doc) {
-  console.log(doc._id + " o'chirildi");
-});`,
-          },
-        },
-      ],
-    },
-    {
-      id: "post-async",
-      heading: "Asinxron post hook'lar",
-      blocks: [
-        {
-          type: "paragraph",
-          text: "Agar post hook funksiyasi kamida 2 ta parametr qabul qilsa, Mongoose ikkinchi parametrni next() funksiyasi deb hisoblaydi — navbatdagi middleware'ni ishga tushirish uchun uni albatta chaqirish kerak bo'ladi.",
-        },
-        {
-          type: "code",
-          example: {
-            caption: "next() bilan zanjirlangan ikkita post hook",
-            language: "javascript",
-            code: `schema.post('save', function (doc, next) {
-  setTimeout(() => {
-    console.log('birinchi post hook');
-    next(); // navbatdagisini ishga tushiradi
-  }, 10);
-});
-
-schema.post('save', function (doc, next) {
-  console.log('ikkinchi post hook');
-  next();
-});`,
-          },
-        },
-        {
-          type: "paragraph",
-          text: "Agar async funksiya 2 tadan kam parametr qabul qilsa, next()ni chaqirish shart emas — Mongoose uning Promise'i tugashini o'zi kutadi:",
-        },
-        {
-          type: "code",
-          example: {
-            language: "javascript",
-            code: `schema.post('save', async function (doc) {
-  await qandaydirIsh();
-  // faqat 1 ta parametr bor, shuning uchun next() shart emas
-});`,
-          },
-        },
-      ],
-    },
-    {
-      id: "compile",
-      heading: "Middleware'ni modelni compile qilishdan OLDIN belgilang",
-      blocks: [
-        {
-          type: "paragraph",
-          text: "Bu — eng ko'p uchraydigan xatolardan biri. mongoose.model() chaqirilgandan KEYIN qo'shilgan pre()/post() hook'lar umuman ishlamaydi.",
-        },
-        {
-          type: "code",
-          example: {
-            caption: "Noto'g'ri va to'g'ri tartib",
-            language: "javascript",
-            code: `// ❌ NOTO'G'RI
-const schema = new mongoose.Schema({ name: String });
-const User = mongoose.model('User', schema); // model bu yerda compile bo'ldi
-
-schema.pre('save', () => console.log('Bu hech qachon chiqmaydi'));
-
-// ✅ TO'G'RI
-const schema2 = new mongoose.Schema({ name: String });
-schema2.pre('save', () => console.log('Bu chiqadi!'));
-const User2 = mongoose.model('User2', schema2); // avval hook qo'shildi, keyin compile qilindi`,
-          },
-        },
-        {
-          type: "note",
-          variant: "warning",
-          text: "Shu sababli sxema va uni ishlatuvchi model bir xil faylda eksport qilinsa, ehtiyot bo'ling: mongoose.model() chaqirilgan zahoti sxema \"yopiladi\". Global plaginlarni ham shu fayl require() qilinishidan oldin qo'shish kerak.",
-        },
-      ],
-    },
-    {
-      id: "order",
-      heading: "Save va Validate hook'larining ishlash tartibi",
-      blocks: [
-        {
-          type: "paragraph",
-          text: "save() funksiyasi ichida Mongoose avtomatik ravishda validate()'ni ham chaqiradi. Shu sababli barcha pre('validate') va post('validate') hook'lari, pre('save') hook'laridan OLDIN ishga tushadi.",
-        },
-        {
-          type: "code",
-          example: {
-            language: "javascript",
-            code: `schema.pre('validate', () => console.log('1-chi bo\\'lib chiqadi'));
-schema.post('validate', () => console.log('2-chi bo\\'lib chiqadi'));
-schema.pre('save', () => console.log('3-chi bo\\'lib chiqadi'));
-schema.post('save', () => console.log('4-chi bo\\'lib chiqadi'));
-
-await hujjat.save();
-// Konsolda ketma-ketlik aynan shu tartibda chiqadi: 1, 2, 3, 4`,
-          },
-        },
-      ],
-    },
-    {
-      id: "params",
-      heading: "Middleware ichida parametrlarga kirish",
-      blocks: [
-        {
-          type: "paragraph",
-          text: "Query middleware ichida so'rov haqidagi ma'lumotga this orqali kirish tavsiya etiladi — u Query obyektining o'zi:",
-        },
-        {
-          type: "code",
-          example: {
-            language: "javascript",
-            code: `userSchema.pre('findOneAndUpdate', function () {
-  console.log(this.getFilter()); // { name: 'Aziz' }
-  console.log(this.getUpdate());  // { $set: { age: 30 } }
-});
-
-await User.findOneAndUpdate({ name: 'Aziz' }, { $set: { age: 30 } });`,
-          },
-        },
-        {
-          type: "paragraph",
-          text: "save() uchun esa Mongoose birinchi argument sifatida save()ga uzatilgan optionlarni to'g'ridan-to'g'ri pre('save') funksiyasiga beradi — chunki bu optionlar hujjatning o'zida saqlanmaydi:",
-        },
-        {
-          type: "code",
-          example: {
-            language: "javascript",
-            code: `userSchema.pre('save', function (options) {
-  console.log(options.validateModifiedOnly); // true
-});
-
-await user.save({ validateModifiedOnly: true });`,
-          },
-        },
-      ],
-    },
-    {
-      id: "naming",
-      heading: "Nomlanish to'qnashuvlari: deleteOne va validate",
-      blocks: [
-        {
-          type: "paragraph",
-          text: "deleteOne uchun Mongoose'da ham document, ham query middleware mavjud, lekin standart holatda faqat query middleware ro'yxatdan o'tadi:",
-        },
-        {
-          type: "code",
-          example: {
-            language: "javascript",
-            code: `schema.pre('deleteOne', function () {
-  console.log("O'chirilyapti!");
-});
-
-await hujjat.deleteOne();   // Hech narsa chop etilmaydi (legacy sabablarga ko'ra)
-await Model.deleteOne({});  // "O'chirilyapti!" chop etiladi`,
-          },
-        },
-        {
-          type: "paragraph",
-          text: "Buni o'zgartirish uchun ikkinchi argument sifatida { document, query } obyektini bering — ikkalasini ham aniq ko'rsatish shart:",
-        },
-        {
-          type: "code",
-          example: {
-            language: "javascript",
-            code: `schema.pre('deleteOne', { document: true, query: false }, function () {
-  console.log("Faqat hujjat middleware'i");
-});
-
-schema.pre('deleteOne', { document: false, query: true }, function () {
-  console.log("Faqat query middleware'i");
-});`,
-          },
-        },
-        {
-          type: "paragraph",
-          text: "validate() esa buning aksi — standart holatda Document middleware sifatida ishlaydi:",
-        },
-        {
-          type: "code",
-          example: {
-            language: "javascript",
-            code: `schema.pre('validate', function () {
-  console.log('Hujjat validatsiyasi');
-});
-schema.pre('validate', { query: true, document: false }, function () {
-  console.log('Query validatsiyasi');
-});
-
-await hujjat.validate();        // "Hujjat validatsiyasi"
-await Model.find().validate();  // "Query validatsiyasi"`,
-          },
-        },
-      ],
-    },
-    {
-      id: "find-update",
-      heading: "findOneAndUpdate() va query middleware haqida muhim eslatma",
-      blocks: [
-        {
-          type: "paragraph",
-          text: "save()ga tegishli pre/post hook'lar update(), findOneAndUpdate() kabi funksiyalarda ISHLAMAYDI — bular uchun Mongoose alohida, mustaqil hook'lar taqdim etadi.",
-        },
-        {
-          type: "code",
-          example: {
-            caption: "find() so'rovi qancha vaqt olganini o'lchash",
-            language: "javascript",
-            code: `schema.pre('find', function () {
-  this.start = Date.now();
-});
-
-schema.post('find', function (result) {
-  console.log('find() ' + result.length + " ta hujjat qaytardi");
-  console.log((Date.now() - this.start) + ' ms sarflandi');
-});`,
-          },
-        },
-        {
-          type: "paragraph",
-          text: "Query middleware'da this — Query obyekti, shuning uchun yangilanayotgan hujjatning o'ziga to'g'ridan-to'g'ri kira olmaysiz. Masalan, updateOne uchun updatedAt maydonini avtomatik qo'shish mumkin:",
-        },
-        {
-          type: "code",
-          example: {
-            language: "javascript",
-            code: `schema.pre('updateOne', function () {
-  this.set({ updatedAt: new Date() });
-});`,
-          },
-        },
-        {
-          type: "paragraph",
-          text: "Agar yangilanayotgan hujjatning o'zini ko'rish zarur bo'lsa, uni alohida so'rov orqali qo'lda olib kelish kerak:",
-        },
-        {
-          type: "code",
-          example: {
-            language: "javascript",
-            code: `schema.pre('findOneAndUpdate', async function () {
-  const eskiHujjat = await this.model.findOne(this.getQuery());
-  console.log(eskiHujjat); // findOneAndUpdate o'zgartirmoqchi bo'lgan hujjat
-});`,
-          },
-        },
-        {
-          type: "paragraph",
-          text: "Agar updateOne document middleware sifatida ({ document: true, query: false }) belgilansa, this — endi hujjatning o'zi bo'ladi:",
-        },
-        {
-          type: "code",
-          example: {
-            language: "javascript",
-            code: `schema.pre('updateOne', { document: true, query: false }, function () {
-  console.log('Yangilanmoqda: ' + this.name);
-});
-
-const hujjat = new Model();
-await hujjat.updateOne({ $set: { name: 'test' } }); // "Yangilanmoqda: ..." chop etiladi
-
-await Model.updateOne({}, { $set: { name: 'test' } }); // Hech narsa chop etilmaydi`,
-          },
-        },
-      ],
-    },
-    {
-      id: "error-mw",
-      heading: "Xatoliklarni qayta ishlovchi maxsus middleware",
-      blocks: [
-        {
-          type: "paragraph",
-          text: "Odatda biror middleware xatolik bersa, keyingi barcha middleware'lar to'xtaydi. Ammo Mongoose'da alohida tur mavjud — error handling middleware — u faqat xatolik yuz berganda ishga tushadi va xato xabarini o'qishga qulayroq shaklga keltirishga xizmat qiladi.",
-        },
-        {
-          type: "paragraph",
-          text: "Bu middleware'ni ajratish oson: u qo'shimcha bitta parametr — yuz bergan xatoning o'zini — birinchi argument sifatida qabul qiladi.",
-        },
-        {
-          type: "code",
-          example: {
-            caption: "Takroriy kalit xatosini (E11000) o'qishli xabarga aylantirish",
-            language: "javascript",
-            code: `const schema = new mongoose.Schema({
-  name: {
-    type: String,
-    unique: true // Takrorlansa, MongoServerError (kod 11000) qaytaradi
-  }
-});
-
-// Bu funksiya 3 ta parametrni SHART qabul qiladi: xato, hujjat, next
-schema.post('save', function (error, doc, next) {
-  if (error.name === 'MongoServerError' && error.code === 11000) {
-    next(new Error('Bunday nom allaqachon mavjud'));
-  } else {
-    next();
-  }
-});
-
-await Foydalanuvchi.create([{ name: 'Ali' }, { name: 'Ali' }]);
-// -> post('save') error handler ishga tushadi`,
-          },
-        },
-        {
-          type: "paragraph",
-          text: "Xuddi shu tarzda query middleware uchun ham ishlaydi — masalan, updateOne'dagi takroriy kalit xatosini ushlab olish:",
-        },
-        {
-          type: "code",
-          example: {
-            language: "javascript",
-            code: `schema.post('updateOne', function (error, res, next) {
-  if (error.name === 'MongoServerError' && error.code === 11000) {
-    throw new Error('Takroriy kalit xatosi yuz berdi');
-  } else {
-    next();
-  }
-});`,
-          },
-        },
-        {
-          type: "note",
-          variant: "warning",
-          text: "Xatoni qayta ishlovchi middleware xatoni faqat o'zgartira oladi, lekin uni butunlay yo'q qila olmaydi — funksiya chaqiruvi baribir xatolik bilan yakunlanadi.",
-        },
-      ],
-    },
-    {
-      id: "aggregate",
-      heading: "Aggregatsiya hook'lari",
-      blocks: [
-        {
-          type: "paragraph",
-          text: "Model.aggregate() funksiyasi uchun ham hook belgilash mumkin. Bunda this — Mongoose'ning Aggregate obyekti.",
-        },
-        {
-          type: "paragraph",
-          text: "Amaliy misol: \"soft delete\" (hujjatni butunlay o'chirmasdan, isDeleted: true belgisini qo'yish) qo'llanilganda, har bir aggregate so'rovi avtomatik ravishda faqat o'chirilmagan mijozlarni ko'rishi uchun pipeline boshiga $match bosqichini qo'shish mumkin:",
-        },
-        {
-          type: "code",
-          example: {
-            language: "javascript",
-            code: `customerSchema.pre('aggregate', function () {
-  // Har bir pipeline'ning boshiga $match bosqichini qo'shadi
-  this.pipeline().unshift({ $match: { isDeleted: { $ne: true } } });
-});`,
-          },
-        },
-        {
-          type: "paragraph",
-          text: "pipeline() funksiyasi Mongoose MongoDB serveriga jo'natadigan aggregation bosqichlari massiviga bevosita kirish imkonini beradi — shu orqali boshiga yangi bosqich qo'shish mumkin bo'ladi.",
-        },
-      ],
-    },
-    {
-      id: "sync",
-      heading: "Sinxron hook'lar: init",
-      blocks: [
-        {
-          type: "paragraph",
-          text: "Deyarli barcha hook'lar Promise qaytarishi mumkin, biroq bitta istisno bor — init hook'lari, chunki init() funksiyasining o'zi sinxron ishlaydi (u MongoDB'dan qaytgan xom obyektni to'liq Mongoose hujjatiga aylantiradi).",
-        },
-        {
-          type: "code",
-          example: {
-            language: "javascript",
-            code: `schema.pre('init', (pojo) => {
-  console.log(pojo.constructor.name); // 'Object' — hali init bo'lmagan holat
-});
-
-schema.post('init', (doc) => {
-  doc.loadedAt = new Date(); // endi to'liq Mongoose hujjati
-});`,
-          },
-        },
-        {
-          type: "note",
-          variant: "warning",
-          text: "init hook'ida xato bildirish uchun faqat SINXRON throw ishlatilishi kerak — Promise.reject() yoki async funksiya orqali qaytarilgan xato e'tiborga olinmaydi.",
-        },
-      ],
-    },
-    {
-      id: "skip",
-      heading: "Middleware'ni o'tkazib yuborish",
-      blocks: [
-        {
-          type: "paragraph",
-          text: "Ba'zan unumdorlik muhim bo'lgan amallarda yoki vaqtincha barcha maxsus middleware'larni chetlab o'tish kerak bo'ladi. Buning uchun middleware optioni ishlatiladi.",
-        },
-        {
-          type: "code",
-          example: {
-            caption: "Barcha yoki faqat pre/post middleware'larni o'chirish",
-            language: "javascript",
-            code: `// Barcha foydalanuvchi middleware'larini o'tkazib yuborish
-await hujjat.save({ middleware: false });
-await Model.find({}, null, { middleware: false });
-await Model.updateOne({}, { name: 'test' }, { middleware: false });
-
-// Faqat pre yoki faqat post hook'larni o'tkazib yuborish
-await hujjat.save({ middleware: { pre: false } });
-await Model.find({}, null, { middleware: { post: false } });`,
-          },
-        },
-        {
-          type: "note",
-          variant: "info",
-          text: "Diqqat: bu faqat schema.pre() / schema.post() orqali qo'shilgan FOYDALANUVCHI middleware'lariga tegishli. Mongoose'ning ichki mexanizmlari (masalan, timestamps yoki asosiy validatsiya) middleware: false bo'lsa ham har doim ishlayveradi.",
-        },
-      ],
-    },
-    {
-      id: "mongodb-bog",
-      heading: "Mongoose va MongoDB: bog'liqlik haqida",
-      blocks: [
-        {
-          type: "paragraph",
-          text: "Mongoose mustaqil ma'lumotlar bazasi emas — u MongoDB ustida ishlaydigan qatlam (ODM). Yuqorida ko'rilgan barcha middleware, sxema va validatsiya imkoniyatlari faqat MongoDB kolleksiyalari bilan ishlaganda ma'no kasb etadi, chunki Mongoose orqada barcha amallarni MongoDB'ning rasmiy Node.js drayveri buyruqlariga (insertOne, updateOne, aggregate va h.k.) aylantirib yuboradi.",
-        },
         {
           type: "note",
           variant: "success",
-          text: "Xulosa: agar loyihangizda MongoDB ishlatilayotgan bo'lsa, Mongoose to'g'ri tanlov — u sizga tuzilma, ichki validatsiya va middleware orqali qo'shimcha nazorat beradi. Relatsion (PostgreSQL, MySQL kabi) bazalar bilan Mongoose ishlamaydi — u faqat MongoDB uchun mo'ljallangan.",
+          text: "Shu bilan Mongoose middleware tizimining 4 turi va ularning barcha asosiy metodlari ko'rib chiqildi: Document (validate, save, updateOne, deleteOne, init), Query (find, findOne, findOneAndUpdate va h.k.), Aggregate (aggregate) va Model (insertMany, bulkWrite, createCollection). Pre/post hook'larning umumiy mexanikasi, xatoliklarni boshqarish va boshqa chuqurroq mavzular keyingi yangilanishlarda alohida qo'shiladi.",
         },
       ],
     },
@@ -1041,20 +661,20 @@ await Model.find({}, null, { middleware: { post: false } });`,
     },
     {
       id: "q2",
-      question: "schema.pre('save', fn) hook'i qachon ishlamay qoladi?",
+      question: "Document middleware'da this kalit so'zi nimani anglatadi?",
       options: [
-        "Agar fn async funksiya bo'lsa",
-        "Agar u mongoose.model() chaqirilgandan KEYIN qo'shilsa",
-        "Agar hujjatda validatsiya xatosi bo'lsa",
-        "Agar fn Promise qaytarsa",
+        "Query obyektini",
+        "Hujjatning o'zini",
+        "Modelning statik klassini",
+        "Aggregate obyektini",
       ],
       correctIndex: 1,
       explanation:
-        "Middleware faqat model compile qilinishidan (mongoose.model() chaqirilishidan) OLDIN qo'shilgan bo'lsa ishlaydi.",
+        "Document middleware hujjat metodlariga (save, validate, updateOne, deleteOne, init) ulanadi va this — hujjatning o'zi bo'ladi. Modelga this.constructor orqali kirish mumkin.",
     },
     {
       id: "q3",
-      question: "hujjat.save() chaqirilganda hook'lar qaysi tartibda ishga tushadi?",
+      question: "hujjat.save() chaqirilganda ichki hook'lar qaysi tartibda ishga tushadi?",
       options: [
         "pre save → post save → pre validate → post validate",
         "pre validate → post validate → pre save → post save",
@@ -1063,7 +683,7 @@ await Model.find({}, null, { middleware: { post: false } });`,
       ],
       correctIndex: 1,
       explanation:
-        "save() ichida avtomatik validate() chaqiriladi, shu sababli validate hook'lari save hook'laridan oldin ishga tushadi.",
+        "save() ichida avtomatik validate() ham chaqiriladi, shu sababli validate hook'lari save hook'laridan OLDIN ishga tushadi.",
     },
     {
       id: "q4",
@@ -1082,82 +702,85 @@ await Model.find({}, null, { middleware: { post: false } });`,
     {
       id: "q5",
       question:
-        "Post hook funksiyasi ikkinchi parametr (masalan, next) qabul qilsa, nima talab qilinadi?",
+        "document.updateOne() metodini DOCUMENT middleware sifatida (this — hujjatning o'zi bo'lishi uchun) ro'yxatdan o'tkazish uchun nima qilish kerak?",
       options: [
-        "next() avtomatik chaqiriladi",
-        "Dasturchi next()ni albatta o'zi chaqirishi kerak",
-        "next parametri e'tiborga olinmaydi",
-        "Bu holatda xatolik yuz beradi",
+        "Hech narsa, u standart holatda shunday ishlaydi",
+        "schema.pre('updateOne', { document: true, query: false }, fn) shaklida aniq belgilash",
+        "Faqat async funksiya ishlatish",
+        "Buni umuman document middleware sifatida ro'yxatdan o'tkazib bo'lmaydi",
       ],
       correctIndex: 1,
       explanation:
-        "2 yoki undan ortiq parametr qabul qiluvchi post hook asinxron deb hisoblanadi, shuning uchun navbatdagi middleware ishga tushishi uchun next() albatta chaqirilishi shart.",
+        "Standart holatda updateOne Query middleware sifatida ro'yxatdan o'tadi. Uni document middleware qilish uchun { document: true, query: false } optioni aniq ko'rsatilishi shart.",
     },
     {
       id: "q6",
-      question:
-        "Error handling middleware oddiy post middleware'dan nimasi bilan farqlanadi?",
+      question: "Query middleware ichida this odatda nimani anglatadi?",
       options: [
-        "U schema.post() emas, alohida usul orqali qo'shiladi",
-        "U qo'shimcha, birinchi argument sifatida yuz bergan xatoni qabul qiladi",
-        "U faqat aggregate() uchun ishlaydi",
-        "U hech qachon xatoni o'zgartira olmaydi",
+        "Yangilanayotgan yoki qidirilayotgan hujjatning o'zini",
+        "Query obyektini",
+        "Model klassini",
+        "Aggregate obyektini",
       ],
       correctIndex: 1,
       explanation:
-        "Error handling middleware qo'shimcha parametr — yuz bergan xatoning o'zini — birinchi argument sifatida oladi, shu bilan oddiy post hook'lardan ajralib turadi.",
+        "Query middleware'da this har doim Query obyektiga ishora qiladi — hujjatning o'ziga to'g'ridan-to'g'ri kirib bo'lmaydi, buning uchun alohida so'rov yuborish kerak.",
     },
     {
       id: "q7",
-      question: "pre('findOneAndUpdate') query middleware ichida this nimani anglatadi?",
+      question:
+        "Model.replaceOne() bilan Model.updateOne() o'rtasidagi asosiy farq nimada?",
       options: [
-        "Yangilanayotgan hujjatning o'zi",
-        "Model klassi",
-        "Query obyekti",
-        "undefined",
+        "replaceOne bir nechta hujjatni, updateOne esa faqat bittasini yangilaydi",
+        "replaceOne butun hujjatni almashtiradi, updateOne esa $set kabi atomik operatorlar bilan ishlaydi",
+        "Ular butunlay bir xil ishlaydi",
+        "updateOne faqat aggregate so'rovlarda ishlatiladi",
       ],
-      correctIndex: 2,
+      correctIndex: 1,
       explanation:
-        "Query middleware'da this har doim Query obyektiga ishora qiladi — yangilanayotgan hujjatning o'ziga to'g'ridan-to'g'ri kirish uchun alohida so'rov yuborish kerak.",
+        "replaceOne() hujjatni to'liq yangi hujjat bilan almashtiradi (atomik operatorlarsiz), updateOne() esa $set, $inc kabi operatorlar bilan faqat ko'rsatilgan maydonlarni yangilaydi.",
     },
     {
       id: "q8",
-      question: "init hook'ida xato qanday to'g'ri bildiriladi?",
+      question:
+        "Mongoose'ning rasmiy hujjatiga ko'ra, distinct() metodining qiziq jihati nimada?",
       options: [
-        "Sinxron throw yordamida",
-        "Promise.reject() qaytarib",
-        "async funksiyada await bilan xato tashlab",
-        "next(xato) chaqirib",
+        "U query middleware ro'yxatida ko'rsatilgan bo'lsa-da, aslida hech qanday middleware'ni ishga tushirmaydi",
+        "U faqat aggregate() bilan birga ishlaydi",
+        "U hech qachon Promise qaytarmaydi",
+        "U faqat Model darajasida emas, faqat Document darajasida ishlaydi",
       ],
       correctIndex: 0,
       explanation:
-        "init() funksiyasi sinxron ishlagani uchun faqat sinxron throw orqali tashlangan xatolar ushlanadi; Promise asosidagi xatolar e'tiborga olinmaydi.",
+        "distinct() query middleware turlari orasida sanalgan bo'lsa-da, u hech qanday pre/post hook'ni ishga tushirmaydi — bu Mongoose hujjatida alohida ta'kidlangan nuance.",
     },
     {
       id: "q9",
-      question: "middleware: false optioni aniq nimani anglatadi?",
+      question: "Aggregate middleware'da this nimaga ishora qiladi va uni qanday o'zgartirish mumkin?",
       options: [
-        "Barcha validatsiyani butunlay o'chiradi",
-        "Faqat schema.pre()/post() orqali qo'shilgan foydalanuvchi middleware'larini o'tkazib yuboradi",
-        "MongoDB'ga ulanishni to'xtatadi",
-        "Faqat post hook'larni butunlay o'chiradi",
+        "Query obyektiga; this.getFilter() orqali",
+        "Aggregate obyektiga; this.pipeline() orqali bosqichlar qo'shish mumkin",
+        "Hujjatning o'ziga; this.set() orqali",
+        "Modelning o'ziga; this.create() orqali",
       ],
       correctIndex: 1,
       explanation:
-        "middleware: false faqat foydalanuvchi qo'shgan pre/post hook'larni o'tkazib yuboradi; Mongoose'ning ichki mexanizmlari (masalan, timestamps) baribir ishlayveradi.",
+        "Aggregate middleware'da this — Mongoose'ning Aggregate obyekti, this.pipeline() esa MongoDB'ga yuboriladigan bosqichlar massiviga bevosita kirish va uni o'zgartirish imkonini beradi (masalan, $match bosqichini qo'shish).",
     },
     {
       id: "q10",
-      question: "Mongoose asosan qaysi ma'lumotlar bazasi bilan ishlashga mo'ljallangan?",
+      question:
+        "Model middleware turiga oid quyidagi fikrlardan qaysi biri TO'G'RI?",
       options: [
-        "Har qanday relatsion baza bilan",
-        "Faqat MongoDB bilan",
-        "MySQL va PostgreSQL bilan",
-        "Redis bilan",
+        "insertMany() va bulkWrite() ikkalasi ham save() hook'larini ishga tushiradi",
+        "bulkWrite() hech qanday middleware'ni (na save, na update) ishga tushirmaydi",
+        "createCollection() har doim majburiy chaqirilishi kerak, aks holda hujjat saqlanmaydi",
+        "Model middleware'da this — hujjatning o'zi bo'ladi",
       ],
       correctIndex: 1,
       explanation:
-        "Mongoose — MongoDB uchun maxsus yaratilgan ODM kutubxonasi bo'lib, faqat MongoDB kolleksiyalari bilan ishlashga mo'ljallangan.",
+        "bulkWrite() serverga to'g'ridan-to'g'ri buyruq yuboradi va hech qanday save()/update() middleware'ini ishga tushirmaydi. insertMany() esa save() emas, balki o'zining alohida insertMany hook'ini ishga tushiradi. Model middleware'da this — modelning o'zi (statik kontekst).",
     },
   ],
 };
+
