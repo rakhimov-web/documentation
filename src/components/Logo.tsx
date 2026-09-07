@@ -37,7 +37,7 @@ export function Logo({ size = 32 }: { size?: number }) {
       <span
         className="text-[18px] leading-none text-ink"
         style={{
-          fontFamily: '"IBM Plex Serif", Georgia, serif',
+          fontFamily: '"IBM Plex Sans", "Helvetica Neue", Arial, sans-serif',
           fontWeight: 500,
           letterSpacing: 0,
         }}
