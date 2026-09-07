@@ -35,7 +35,7 @@ export function Logo({ size = 32 }: { size?: number }) {
     <div className="flex items-center gap-3 select-none">
       <LogoMark size={size} />
       <span
-        className="text-[18px] leading-none text-ink italic"
+        className="text-[18px] leading-none text-ink"
         style={{
           fontFamily: '"IBM Plex Serif", Georgia, serif',
           fontWeight: 500,
